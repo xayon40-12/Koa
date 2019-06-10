@@ -1,5 +1,5 @@
 use super::{Any,Type};
-use crate::koa_parser::{Res,ScriptIt};
+use crate::koa_parser::{Res,ParseErr,ScriptIt};
 use std::fmt;
 
 pub struct Str {
@@ -12,12 +12,14 @@ impl Str {
         loop {
             let c = it.chars.next();
             match c {
-                None => {
-                    it.c = '\0';
-                    break;
-                },
+                None => return Err(ParseErr::Parse(String::from("Program ended before String ended."))),
                 Some(c) => match c {
-                    '\\' => s += &'\\'.to_string(), //TODO escape symboles
+                    '\\' => {
+                        match it.chars.next(){
+                            None => return Err(ParseErr::Parse(String::from("Program ended before string ended."))),
+                            Some(c) => s += &Self::escape(c)
+                        }
+                    },
                     '"' => {
                         match it.chars.next(){
                             None => it.c = '\0',
@@ -30,6 +32,15 @@ impl Str {
             }
         }
         Ok(Box::new(Str {msg: s}))
+    }
+    fn escape(c: char) -> String {
+        match c {
+            '"' | '\\' => c.to_string(),
+            'n' => '\n'.to_string(),
+            't' => '\t'.to_string(),
+            'r' => '\r'.to_string(),
+            _ => format!("\\{}", c)
+        }
     }
 }
 
