@@ -8,27 +8,34 @@ pub struct Array {
 
 impl Array {
     pub fn parse(mut it: &mut ScriptIt) -> Res {
-        let mut array = Vec::<Box<dyn Any>>::new(); 
         match it.chars.next(){
             None => return Err(ParseErr::Parse(String::from("Program ended before Array ended."))),
             Some(c) => it.c = c
         }
+        let mut array = Vec::<Box<dyn Any>>::new(); 
+        let first = KoaParser::parse_next(&mut it)?;
+        let f_type = first.get_type();
+        array.push(first);
         loop {
-            match &it.c {
+            match it.c {
                 ',' => {
                     match it.chars.next(){
                         None => return Err(ParseErr::Parse(String::from("Program ended before Array ended."))),
                         Some(c) => it.c = c
                     }
                 }, // continue
-                '}' => {
-                    match it.chars.next(){
-                        None => it.c = '\0',
-                        Some(c) => it.c = c
-                    }
+                ']' => {
+                    it.next();
                     break;
                 },
-                _ => array.push(KoaParser::parse_next(&mut it)?)
+                _ => {
+                    let val = KoaParser::parse_next(&mut it)?;
+                    if val.get_type() == f_type {
+                        array.push(val);
+                    } else {
+                        return Err(ParseErr::Parse(format!("all array elements must have same type. Expected {:?} found {:?}.", f_type, val.get_type())));
+                    }
+                }
             }
         }
         Ok(Box::new(Array {array}))
@@ -44,13 +51,13 @@ impl Any for Array {
 
 impl fmt::Display for Array {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", "{")?;
+        write!(f, "{}", "[")?;
         if let Some((last, elements)) = self.array.split_last() {
             for v in elements {
                 write!(f, "{}, ", v)?;
             }
             write!(f, "{}", last)?;
         }
-        write!(f, "{}", "}")
+        write!(f, "{}", "]")
     }
 }

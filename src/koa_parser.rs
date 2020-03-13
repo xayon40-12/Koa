@@ -1,7 +1,7 @@
 use std::str::Chars;
 pub mod env;
 pub use env::Env;
-pub use env::types::{Any,Str,Num,Array};
+pub use env::types::{Any,Str,Num,Array,Tuple};
 
 pub struct KoaParser<'a> {
     env: Env<'a>
@@ -43,31 +43,46 @@ impl<'a> KoaParser<'a> {
         }
     }
     fn parse_next(mut it: &mut ScriptIt) -> Res {
-        Self::skip_white_space(&mut it);
+        it.skip_white_space();
         let res = match it.c {
             '0' ..= '9' => Num::parse(&mut it),
             '"' => Str::parse(&mut it),
-            '{' => Array::parse(&mut it),
+            '[' => Array::parse(&mut it),
+            '(' => Self::parse_bracket(&mut it),
             '\n' => {
                 it.line_id += 1;
-                Self::parse_next_char(&mut it);
+                it.next();
                 Self::parse_next(&mut it)
             },
             '\0' => Err(ParseErr::Eof),
             _ => Err(ParseErr::Parse(format!("Unrecognised character '{}'.", &it.c)))
         };
-        Self::skip_white_space(&mut it);
+        it.skip_white_space();
         res
     }
-    fn skip_white_space(mut it: &mut ScriptIt) {
-        while it.c == ' ' {
-            Self::parse_next_char(&mut it);
+    fn parse_bracket(mut it: &mut ScriptIt) -> Res {
+        it.next();
+        if it.c == '\0' {
+            return Err(ParseErr::Parse(String::from("Program ended before bracket closed.")))
+        }
+        let first = Self::parse_next(&mut it)?;
+        match it.c {
+            ',' => Tuple::parse(&mut it, first),
+            _ => Err(ParseErr::Parse(String::from("Bracket not implemented yet.")))
         }
     }
-    fn parse_next_char(mut it: &mut ScriptIt) {
-        match it.chars.next() {
-            Some(c) => it.c = c,
-            None => it.c = '\0'
+}
+
+impl<'a,'b> ScriptIt<'a,'b> {
+    fn next(&mut self) {
+        match self.chars.next() {
+            Some(c) => self.c = c,
+            None => self.c = '\0'
+        }
+    }
+    fn skip_white_space(&mut self) {
+        while self.c == ' ' {
+            self.next();
         }
     }
 }
